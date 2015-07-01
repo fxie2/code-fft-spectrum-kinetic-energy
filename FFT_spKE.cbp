@@ -31,7 +31,9 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
-		<Unit filename="main.f95" />
+		<Unit filename="fft.f90" />
+		<Unit filename="fftshift.f90" />
+		<Unit filename="main_ke.f90" />
 		<Extensions>
 			<code_completion />
 			<debugger />
