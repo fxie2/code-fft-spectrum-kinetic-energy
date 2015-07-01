@@ -13,7 +13,7 @@ PROGRAM H5_MAIN_FFT
 
   USE HDF5 ! This module contains all necessary modules
   USE fft_mod
-  
+
   IMPLICIT NONE
 
   CHARACTER(LEN=52) :: notmp,no
@@ -31,7 +31,7 @@ PROGRAM H5_MAIN_FFT
   INTEGER     ::  error ! Error flag
   INTEGER     ::  i, j, k,l,p1,p2,k1,k2,k3,rank=3
   INTEGER(kind=8),allocatable :: nmax(:),nmin(:),final_index(:,:),output_index(:,:)
-  integer     :: final_index_1,final_index_2,psum  
+  integer     :: final_index_1,final_index_2,psum
 
   DOUBLE PRECISION, ALLOCATABLE :: buff(:,:,:,:) !, ALLOCATABLE :: buff(:,:,:) ! Data buffers
   DOUBLE PRECISION, ALLOCATABLE :: data_in(:,:,:,:,:) ! Data buffers
@@ -51,7 +51,7 @@ PROGRAM H5_MAIN_FFT
   INTEGER           ::  L_REFINE = 0           ! --------------modify
 
 !-------------------- III: ALLOCALATION AND INITILAIZATION---------------------------------------
-  do i=1,3;       
+  do i=1,3;
       data_dims(i) = N_MESH       ! Data_Dimension
   end do
 
@@ -65,7 +65,7 @@ PROGRAM H5_MAIN_FFT
   DSETNAME(6)='zve'
 
   N_REFINED = L_REFINE*(N_RAW - 1) + 1  ! formula for 21
-! 
+!
   ALLOCATE(filename_r(N_RAW))
   ALLOCATE(filename_w(N_REFINED))
   ALLOCATE(file_id_r(N_RAW))
@@ -127,7 +127,7 @@ PROGRAM H5_MAIN_FFT
   do l=1,N_RAW;
 !---------------------- box 1: READING DATA BEGIN---------------------------------------------------
   CALL h5fopen_f (filename_r(l), H5F_ACC_RDWR_F, file_id_r(l), error)   ! 1. in: filename out: file_id
-  
+
       do i=1,6; ! loop for each component
               !--I. Open an existing dataset. ! must tell the code which dataset.
           CALL h5dopen_f(file_id_r(l), dsetname(i), dset_id_r(l,i), error) ! 2. in: file_id,dsetname out:dset_id
@@ -145,22 +145,23 @@ PROGRAM H5_MAIN_FFT
 
 !--------------------- box 1: READING DATA END----------------------------------------------------
   end do;
-  
+
   CALL h5close_f(error)
 
 !----------------------data analysis--beigns-  --------------------------------
   do l=1,N_RAW
      ! 1- sqrt(rho)*u
-     f(:,:,:)=dCMPLX(dsqrt(data_in(l,:,:,:,1))*data_in(l,:,:,:,2),0) 
-     !f(:,:,:)=dCMPLX(data_in(l,:,:,:,1)*(data_in(l,:,:,:,2)**2+data_in(l,:,:,:,5)**2+data_in(l,:,:,:,6)**2)/2.0d0,0) 
+     f(:,:,:)=dCMPLX(dsqrt(data_in(l,:,:,:,1))*data_in(l,:,:,:,2),0)
+     !f(:,:,:)=dCMPLX(data_in(l,:,:,:,1)*(data_in(l,:,:,:,2)**2+data_in(l,:,:,:,5)**2+data_in(l,:,:,:,6)**2)/2.0d0,0)
          ! Kinetic energy = rho*0.5*uiui (:,:,:,j) get for each j-time
 
 !%%%%%%%%%%%%%%%%%%%%%%%% test
     !do i=1,N_MESH;do j=1,N_MESH;do k=1,N_MESH;
     !   f(i,j,k)=dcos(2d0*pi*(i)/N_MESH)
     !enddo;enddo;enddo
-!%%%%%%%%%%%%%%%%%%%%%%%% test 
+!%%%%%%%%%%%%%%%%%%%%%%%% test
 
+!$OMP PARALLEL DO
     ! -- for every j,k
     do j=1,N_MESH; do k=1,N_MESH
        CALL fft(f(:,j,k));
@@ -169,7 +170,9 @@ PROGRAM H5_MAIN_FFT
     !write(*,*) "good"
     end do;end do
     ! --
+!$OMP END PARALLEL DO
 
+!$OMP PARALLEL DO
     !-- for every i1,k
     do j=1,N_MESH; do k=1,N_MESH
        CALL fft(f(j,:,k));
@@ -177,19 +180,22 @@ PROGRAM H5_MAIN_FFT
        CALL fftshift(f(j,:,k),N_MESH)
     end do;end do
     ! --
+!$OMP END PARALLEL DO
 
+!$OMP PARALLEL DO
     !-- for every i1,i2
     do j=1,N_MESH; do k=1,N_MESH
        CALL fft(f(j,k,:));
        f(j,k,:)=f(j,k,:)/N_MESH
        CALL fftshift(f(j,k,:),N_MESH)
     end do;end do
-  
+!$OMP END PARALLEL DO
     fu=f;
 
     ! 2- sqrt(rho)*v
-     f(:,:,:)=dCMPLX(dsqrt(data_in(l,:,:,:,1))*data_in(l,:,:,:,5),0) 
+     f(:,:,:)=dCMPLX(dsqrt(data_in(l,:,:,:,1))*data_in(l,:,:,:,5),0)
 
+!$OMP PARALLEL DO
     ! -- for every j,k
     do j=1,N_MESH; do k=1,N_MESH
        CALL fft(f(:,j,k));
@@ -198,7 +204,9 @@ PROGRAM H5_MAIN_FFT
     !write(*,*) "good"
     end do;end do
     ! --
+!$OMP END PARALLEL DO
 
+!$OMP PARALLEL DO
     !-- for every i1,k
     do j=1,N_MESH; do k=1,N_MESH
        CALL fft(f(j,:,k));
@@ -206,19 +214,23 @@ PROGRAM H5_MAIN_FFT
        CALL fftshift(f(j,:,k),N_MESH)
     end do;end do
     ! --
+!$OMP END PARALLEL DO
 
+!$OMP PARALLEL DO
     !-- for every i1,i2
     do j=1,N_MESH; do k=1,N_MESH
        CALL fft(f(j,k,:));
        f(j,k,:)=f(j,k,:)/N_MESH
        CALL fftshift(f(j,k,:),N_MESH)
     end do;end do
+!$OMP END PARALLEL DO
 
    fv=f;
 
  ! 3- sqrt(rho)*w
-     f(:,:,:)=dCMPLX(dsqrt(data_in(l,:,:,:,1))*data_in(l,:,:,:,6),0) 
+     f(:,:,:)=dCMPLX(dsqrt(data_in(l,:,:,:,1))*data_in(l,:,:,:,6),0)
 
+!$OMP PARALLEL DO
     ! -- for every j,k
     do j=1,N_MESH; do k=1,N_MESH
        CALL fft(f(:,j,k));
@@ -227,7 +239,9 @@ PROGRAM H5_MAIN_FFT
     !write(*,*) "good"
     end do;end do
     ! --
+!$OMP END PARALLEL DO
 
+!$OMP PARALLEL DO
     !-- for every i1,k
     do j=1,N_MESH; do k=1,N_MESH
        CALL fft(f(j,:,k));
@@ -235,28 +249,37 @@ PROGRAM H5_MAIN_FFT
        CALL fftshift(f(j,:,k),N_MESH)
     end do;end do
     ! --
+!$OMP END PARALLEL DO
 
+!$OMP PARALLEL DO
     !-- for every i1,i2
     do j=1,N_MESH; do k=1,N_MESH
        CALL fft(f(j,k,:));
        f(j,k,:)=f(j,k,:)/N_MESH
        CALL fftshift(f(j,k,:),N_MESH)
     end do;end do
+!$OMP END PARALLEL DO
 
    fw=f;
 
     ! --
 
     ! --
-    p1=1
+    p1=0
+!$OMP PARALLEL
+!$OMP DO PRIVATE(i,j,k) LASTPRIVATE(p1)
     do i=1,N_MESH; do j=1,N_MESH; DO k=1,N_MESH;
+
+       p1 = (i-1)*N_MESH**2 + (j-1)*N_MESH + k
+
        final_index(p1,l)=nint(dsqrt(dble(i-(N_MESH/2+1))**2+ &
                       dble(j-(N_MESH/2+1))**2+dble(k-(N_MESH/2+1))**2))
-       final(p1,l)=(abs(fu(i,j,k))**2+abs(fv(i,j,k))**2+abs(fw(i,j,k))**2)/2d0 !*4d0*pi*( & 
+       final(p1,l)=(abs(fu(i,j,k))**2+abs(fv(i,j,k))**2+abs(fw(i,j,k))**2)/2d0 !*4d0*pi*( &
                    !dble(i-(N_MESH/2+1))**2 + dble(j-(N_MESH/2+1))**2 + dble(k-(N_MESH/2+1))**2   )/2
-       !final(p1,l)=final(p1,l)/N_MESH**3  
-       p1=p1+1  
+                   !final(p1,l)=final(p1,l)/N_MESH**3
     end do;  end do;  end do
+!$OMP END DO
+!$OMP END PARALLEL
   end do
 ! --------------- here finish the l=1,N_RAW
 
@@ -277,10 +300,12 @@ PROGRAM H5_MAIN_FFT
      output(p1,l)=0d0
   end do;end do
 
-  
+!$OMP PARALLEL DO PRIVATE(l,p1)
   do l=1,N_raw;do p1=1,N_MESH**3
+!$OMP ATOMIC
      output(final_index(p1,l),l) = output(final_index(p1,l),l) + final(p1,l);
   end do;enddo
+!$OMP END PARALLEL DO
 
 do l=1,N_raw;
    do i=nminmin,nmaxmax
@@ -308,7 +333,7 @@ do l=1,N_RAW
 
   do i=nminmin,nmaxmax
  !    if (i.lt.(N_mesh*sqrt(3d0)/2))then ! sqrt(3) -> since our wavenumber is not in 1 direction but a module wavenumber
-     if (i.lt.(N_mesh*sqrt(1d0)/2))then 
+     if (i.lt.(N_mesh*sqrt(1d0)/2))then
      if (output(i,l).gt.0.000000000000d0) then
          write(20,*) i,output(i,l),urms2/k0**5*16d0*dsqrt(2d0/pi)*i**4*exp(-2d0*i**2/k0**2)
      !I**4*exp(-2d0*i**2/16)
